@@ -16,6 +16,7 @@
   <test_depend>python3-pytest</test_depend>
 
   <export>
+    <exec_depend>example_interfaces</exec_depend>
     <build_type>ament_python</build_type>
   </export>
 </package> 

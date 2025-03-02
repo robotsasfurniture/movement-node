@@ -1,14 +1,13 @@
 version: '3'
 services:
-  movement_controller:
+  ros2:
     build: .
-    container_name: ros2_movement_controller
-    network_mode: "host"  # This allows the WebSocket server to be accessible from the host
-    ports:
-      - "9090:9090"  # Map container port 9090 to host port 9090
+    container_name: ros2_movement
+    network_mode: "host"
     volumes:
-      - ./:/ros2_ws/src/movement_controller  # Mount the source code for development
-    command: >
-      bash -c "source /opt/ros/humble/setup.bash &&
-              source /ros2_ws/install/setup.bash &&
-              ros2 run movement_controller movement_controller" 
+      - ~/ros2_ws:/ros2_ws
+    stdin_open: true  # docker run -i
+    tty: true        # docker run -t
+    ports:
+      - "9090:9090"  # WebSocket port
+    command: /bin/bash 

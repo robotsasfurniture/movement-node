@@ -8,8 +8,8 @@ async def send_movement():
     async with websockets.connect(uri) as websocket:
         # Example movement command
         movement = {
-            "distance": 1.0,  # Move forward 1 meter
-            "angle": 90.0,  # Turn 90 degrees
+            "distance": 0,  # Move forward 1 meter
+            "angle": 360,  # Turn 90 degrees
         }
 
         await websocket.send(json.dumps(movement))

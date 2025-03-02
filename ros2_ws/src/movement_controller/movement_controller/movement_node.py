@@ -3,13 +3,13 @@
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
-from std_msgs.msg import Float32, Bool
+from std_msgs.msg import Float32
+from example_interfaces.msg import Bool
 import asyncio
 import websockets
 import json
 import threading
 import math
-import logging
 
 
 class MovementController(Node):
@@ -64,6 +64,9 @@ class MovementController(Node):
                     await websocket.send(
                         json.dumps({"status": "ok", "message": "Movement started"})
                     )
+                    self.get_logger().info(
+                        f"Movement started: distance={distance}, angle={angle}"
+                    )
                 else:
                     await websocket.send(
                         json.dumps(
@@ -73,7 +76,7 @@ class MovementController(Node):
                             }
                         )
                     )
-
+                    self.get_logger().info("Previous movement in progress")
             except json.JSONDecodeError:
                 await websocket.send(
                     json.dumps({"status": "error", "message": "Invalid JSON"})
@@ -92,32 +95,35 @@ class MovementController(Node):
             self.get_logger().error(f"WebSocket server error: {str(e)}")
 
     def loop(self):
+        # something to stop time from incrementing or reset it when we get a new input
         self.time = self.time + self.loop_time_period
 
-        # Publish enable message
-        enable_msg = Bool()
-        enable_msg.data = True
-        self.enable_publisher.publish(enable_msg)
+        enableMsg = Bool()
+        enableMsg.data = True
+        self.enable_publisher.publish(enableMsg)
 
-        # Initialize velocity message
-        velocity_msg = Twist()
+        velocityMsg = Twist()
+        velocityMsg.linear.z = 0.0
+        velocityMsg.angular.x = 0.0
+        velocityMsg.angular.y = 0.0
+        velocityMsg.linear.y = 0.0
+        velocityMsg.angular.z = 0.0
+        velocityMsg.linear.x = 0.0
 
         if self.movement_request["executed"]:
             return
 
         # Set speeds
-        spd_x = 0.3  # Linear speed in m/s
-        spd_ang = 0.5  # Angular speed in rad/s
+        spdx = 0.3  # Linear speed in m/s
+        spdang = 0.5  # Angular speed in rad/s
 
         # Adjust angular speed based on target direction
         if self.movement_request["angle"] < 0:
-            spd_ang = -spd_ang
+            spdang = -spdang
 
         # Calculate movement times
-        time_xyz = self.calculate_time_xyz(self.movement_request["distance"], spd_x)
-        time_ang = self.calculate_time_ang(
-            abs(self.movement_request["angle"]), abs(spd_ang)
-        )
+        time_xyz = self.calculate_time_xyz(self.movement_request["distance"], spdx)
+        time_ang = self.calculate_time_ang(self.movement_request["angle"], spdang)
         buff = 1
         wait = 2
 
@@ -125,25 +131,25 @@ class MovementController(Node):
 
         # Set angular velocity
         if self.time <= time_ang and self.time > wait:
-            velocity_msg.angular.z = spd_ang
+            velocityMsg.angular.z = spdang
         else:
-            velocity_msg.angular.z = 0.0
+            velocityMsg.angular.z = 0.0
 
         # Set linear velocity
         if self.time <= time_xyz + time_ang + buff and self.time > time_ang + buff:
-            velocity_msg.linear.x = spd_x
+            velocityMsg.linear.x = spdx
 
         # Stop the robot after movement
         if self.time > (time_xyz + time_ang + buff):
             self.movement_request["distance"] = 0
             self.movement_request["angle"] = 0
-            velocity_msg.linear.x = 0.0
-            velocity_msg.angular.z = 0.0
-            self.time = 0
+            velocityMsg.linear.x = 0.0
+            velocityMsg.angular.z = 0.0
+            self.time = 0  # not sure if needed
             self.executing = False
             self.movement_request["executed"] = True
 
-        self.cmd_vel_publisher.publish(velocity_msg)
+        self.cmd_vel_publisher.publish(velocityMsg)
 
 
 def main(args=None):
